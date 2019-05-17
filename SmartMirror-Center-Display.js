@@ -7,7 +7,7 @@
  * @see  https://github.com/NKucza/smartmirror-center-display
  */
 
-Module.register('smartmirror-center-display',{
+Module.register('Smartmirror-Center-Display',{
 
 	defaults: {
 		height: 540,
