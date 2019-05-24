@@ -12,7 +12,7 @@ module.exports = NodeHelper.create({
 	python_start: function () {
 		const self = this;
 		console.log("[" + self.name + "] starting python");
-    	self.pyshell = new PythonShell('modules/' + this.name + '/python_scripts/center-display-combine.py', {args: [JSON.stringify(this.config)]});
+    	self.pyshell = new PythonShell('modules/' + this.name + '/python_scripts/center-display-combine_stdio.py', {args: [JSON.stringify(this.config)]});
 
 		self.pyshell.on('message', function (message) {
 			try {
@@ -39,6 +39,21 @@ module.exports = NodeHelper.create({
       this.python_start(); 
     }else if(notification === 'CENTER_DISPLAY'){
 		var data = {"SET": payload};
+		self.pyshell.send(JSON.stringify(data));
+	}else if (notification === 'DETECTED_GESTURES'){
+		self.pyshell.send(JSON.stringify(payload));
+	}else if (notification === 'DETECTED_OBJECTS'){
+		self.pyshell.send(JSON.stringify(payload));
+	}else if (notification === 'DETECTED_FACES'){
+		self.pyshell.send(JSON.stringify(payload));
+	}else if (notification === 'GESTURE_DET_FPS'){
+		var data = {"GESTURE_DET_FPS": payload};
+		self.pyshell.send(JSON.stringify(data));
+	}else if (notification === 'OBJECT_DET_FPS'){
+		var data = {"OBJECT_DET_FPS": payload};
+		self.pyshell.send(JSON.stringify(data));
+	}else if (notification === 'FACE_DET_FPS'){
+		var data = {"FACE_DET_FPS": payload};
 		self.pyshell.send(JSON.stringify(data));
 	};
   },

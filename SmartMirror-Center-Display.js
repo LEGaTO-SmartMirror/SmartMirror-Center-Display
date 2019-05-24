@@ -7,7 +7,7 @@
  * @see  https://github.com/NKucza/smartmirror-center-display
  */
 
-Module.register('Smartmirror-Center-Display',{
+Module.register('SmartMirror-Center-Display',{
 
 	defaults: {
 		height: 540,
@@ -59,6 +59,18 @@ Module.register('Smartmirror-Center-Display',{
     notificationReceived: function(notification, payload) {
 		if(notification === 'CENTER_DISPLAY') {
 			this.sendSocketNotification('CENTER_DISPLAY', payload);
+		}else if (notification === 'DETECTED_GESTURES') {
+			this.sendSocketNotification('DETECTED_GESTURES', payload);
+		}else if (notification === 'DETECTED_FACES') {
+			this.sendSocketNotification('DETECTED_FACES', payload);
+		}else if (notification === 'DETECTED_OBJECTS') {
+			this.sendSocketNotification('DETECTED_OBJECTS', payload);
+		}else if (notification === 'GESTURE_DET_FPS') {
+			this.sendSocketNotification('GESTURE_DET_FPS', payload);
+		}else if (notification === 'OBJECT_DET_FPS') {
+			this.sendSocketNotification('OBJECT_DET_FPS', payload);
+		}else if (notification === 'FACE_DET_FPS') {
+			this.sendSocketNotification('FACE_DET_FPS', payload);
 		}
     },
 
