@@ -9,28 +9,6 @@ import subprocess
 import signal
 import json
 
-show_face_captions = False
-show_obj_captions = False
-show_gest_captions = False
-show_camera = False
-show_camera_1m = False
-show_style_transfer = False
-
-recognition_dict = {}
-module_FPS = {}
-
-
-
-if os.path.exists("/tmp/center_display") is True:
-	os.remove("/tmp/center_display")
-
-out = cv2.VideoWriter ('appsrc ! shmsink socket-path=/tmp/center_display sync=true wait-for-connection=false shm-size=100000000',0, 30, (1080,1920), True)
-
-
-
-out.write(np.zeros((1920,1080,3), np.uint8))
-out.write(np.zeros((1920,1080,3), np.uint8))
-
 def to_node(type, message):
 	# convert to json and print (node helper will read from stdout)
 	try:
@@ -40,96 +18,140 @@ def to_node(type, message):
 	# stdout has to be flushed manually to prevent delays in the node helper communication
 	sys.stdout.flush()
 
-to_node("status", 'Buffer initalized.. starting')
+BASE_DIR = os.path.dirname(__file__) + '/'
+os.chdir(BASE_DIR)
 
-def convertBack(x, y, w, h):
-    xmin = int(round(x - (w / 2)))
-    xmax = int(round(x + (w / 2)))
-    ymin = int(round(y - (h / 2)))
-    ymax = int(round(y + (h / 2)))
-    return xmin, ymin, xmax, ymax
+global global_show_face_captions 
+global global_show_obj_captions 
+global global_show_gest_captions 
+global global_show_person_captions 
+global global_show_camera 
+global global_show_camera_1m 
+global global_show_style_transfer
+
+global_show_face_captions = False
+global_show_obj_captions = False
+global_show_gest_captions = False
+global_show_person_captions = True
+global_show_camera = False
+global_show_camera_1m = False
+global_show_style_transfer = False
+
+recognition_dict = {}
+module_FPS = {}
+
+if os.path.exists("/tmp/center_display") is True:
+	os.remove("/tmp/center_display")
+
+out = cv2.VideoWriter ('appsrc ! shmsink socket-path=/tmp/center_display sync=true wait-for-connection=false shm-size=100000000',0, 30, (1080,1920), True)
+
+out.write(np.zeros((1920,1080,3), np.uint8))
+out.write(np.zeros((1920,1080,3), np.uint8))
+out.write(np.zeros((1920,1080,3), np.uint8))
+out.write(np.zeros((1920,1080,3), np.uint8))
+
+to_node('status','starting sub process')
+
+pp = subprocess.Popen(['python', 'webstream.py'])
+
 
 def check_stdin():
-	global show_face_captions
-	global show_obj_captions
-	global show_gest_captions
-	global show_camera
-	global show_camera_1m
-	global show_style_transfer
+	global global_show_face_captions
+	global global_show_obj_captions
+	global global_show_gest_captions
+	global global_show_person_captions
+	global global_show_camera
+	global global_show_camera_1m
+	global global_show_style_transfer
 	global recognition_dict
 	global module_FPS
 	
 	while True:
 		lines = sys.stdin.readline()
-		
-		data = json.loads(lines)
-		if 'SET' in data:
-			setting = data['SET']
-			to_node("status", "Changing: " + setting)
-			if setting == 'TOGGLE':
-				show_camera = not show_camera
-				show_style_transfer = False
-			elif setting == 'DISTANCE':
-				show_camera_1m = not show_camera_1m
-			elif setting == 'FACE':
-				show_face_captions = not show_face_captions
-			elif setting == 'OBJECT':
-				show_obj_captions = not show_obj_captions
-			elif setting == 'GESTURE':
-				show_gest_captions = not show_gest_captions
-			elif setting == 'STYLE_TRANSFERE':
-				show_obj_captions = False
-				show_face_captions = False
-				show_gest_captions = False
-				show_camera = False
-				show_camera_1m = False
-				show_style_transfer = not show_style_transfer
-			elif setting == 'HIDEALL':
-				show_obj_captions = False
-				show_face_captions = False
-				show_gest_captions = False
-				show_camera = False
-				show_camera_1m = False
-				show_style_transfer = False
-			elif setting == 'SHOWALL':
-				show_obj_captions = True
-				show_face_captions = True
-				show_gest_captions = True
-				show_camera = True
-				show_camera_1m = False
-				show_style_transfer = False
-		elif 'DETECTED_FACES' in data:
-			recognition_dict['DETECTED_FACES'] = data['DETECTED_FACES']
-		elif 'DETECTED_GESTURES' in data:
-			recognition_dict['DETECTED_GESTURES'] = data['DETECTED_GESTURES']
-		elif 'DETECTED_OBJECTS' in data:
-			recognition_dict['DETECTED_OBJECTS'] = data['DETECTED_OBJECTS']
-		elif 'GESTURE_DET_FPS' in data:
-			module_FPS['GESTURE_DET_FPS'] = data['GESTURE_DET_FPS']
-		elif 'OBJECT_DET_FPS' in data:
-			module_FPS['OBJECT_DET_FPS'] = data['OBJECT_DET_FPS']
-		elif 'FACE_DET_FPS' in data:
-			module_FPS['FACE_DET_FPS'] = data['FACE_DET_FPS']
+		try:
+			data = json.loads(lines)
+			if 'SET' in data:
+				setting = data['SET']
+				to_node('status', "Changing: " + setting)
+				if setting == 'TOGGLE':
+					global_show_camera = not global_show_camera
+					global_show_style_transfer = False
+				elif setting == 'DISTANCE':
+					global_show_camera_1m = not global_show_camera_1m
+				elif setting == 'FACE':
+					global_show_face_captions = not global_show_face_captions
+				elif setting == 'OBJECT':
+					global_show_obj_captions = not global_show_obj_captions
+				elif setting == 'GESTURE':
+					global_show_gest_captions = not global_show_gest_captions
+				elif setting == 'PERSON':
+					global_show_person_captions = not global_show_person_captions
+				elif setting == 'STYLE_TRANSFERE':
+					global_show_obj_captions = False
+					global_show_face_captions = False
+					global_show_gest_captions = False
+					global_show_person_captions = False
+					global_show_camera = False
+					global_show_camera_1m = False
+					global_show_style_transfer = not global_show_style_transfer
+				elif setting == 'HIDEALL':
+					global_show_obj_captions = False
+					global_show_face_captions = False
+					global_show_gest_captions = False
+					global_show_person_captions = False
+					global_show_camera = False
+					global_show_camera_1m = False
+					global_show_style_transfer = False
+				elif setting == 'SHOWALL':
+					global_show_obj_captions = True
+					global_show_face_captions = True
+					global_show_gest_captions = True
+					global_show_camera = True
+					global_show_camera_1m = False
+					global_show_style_transfer = False
+			elif 'DETECTED_FACES' in data:
+				recognition_dict['DETECTED_FACES'] = data['DETECTED_FACES']
+				#to_node('status',recognition_dict['DETECTED_FACES'])
+			elif 'DETECTED_GESTURES' in data:
+				recognition_dict['DETECTED_GESTURES'] = data['DETECTED_GESTURES']
+				#to_node('status',recognition_dict['DETECTED_GESTURES'])
+			elif 'DETECTED_OBJECTS' in data:
+				recognition_dict['DETECTED_OBJECTS'] = data['DETECTED_OBJECTS']
+				#to_node('status',recognition_dict['DETECTED_OBJECTS'])
+			elif 'RECOGNIZED_PERSONS' in data:
+				recognition_dict['RECOGNIZED_PERSONS'] = data['RECOGNIZED_PERSONS']
+				#to_node('status',data)
+			elif 'GESTURE_DET_FPS' in data:
+				module_FPS['GESTURE_DET_FPS'] = data['GESTURE_DET_FPS']
+			elif 'OBJECT_DET_FPS' in data:
+				module_FPS['OBJECT_DET_FPS'] = data['OBJECT_DET_FPS']
+			elif 'FACE_DET_FPS' in data:
+				module_FPS['FACE_DET_FPS'] = data['FACE_DET_FPS']
+		except:
+			to_node("error","check_std_in error")
 
-			
 
 t = Thread(target=check_stdin)
 t.start()
 
+
 #cv2.namedWindow("center image", cv2.WINDOW_NORMAL)
 
-#print("Calling subprocess to open gst_rtsp_server")
-#BASE_DIR = os.path.dirname(__file__) + '/'
-BASE_DIR = os.path.dirname(__file__) + '/'
-os.chdir(BASE_DIR)
-#p = subprocess.Popen(['python', BASE_DIR + 'gst_rtsp_server.py'])
-pp = subprocess.Popen(['python', 'webstream.py'])
+to_node('status', "check_stdin started")
 
-time.sleep(2)
-
+def convertBack(x, y, w, h):
+	x = x * 1080
+	y = y * 1920
+	w = w * 1080
+	h = h * 1920
+	xmin = int(round(x - (w / 2)))
+	xmax = int(round(x + (w / 2)))
+	ymin = int(round(y - (h / 2)))
+	ymax = int(round(y + (h / 2)))
+	return (xmin, ymin),(xmax, ymax)
 
 def shutdown(self, signum):
-	to_node("status", 'Shutdown: Cleaning up camera...')
+	to_node('status', 'Shutdown: Cleaning up camera...')
 	os.remove("/tmp/center_display")
 	pp.kill()
 	video.release()
@@ -137,10 +159,12 @@ def shutdown(self, signum):
 	video_style_transfer.release()
 	out.release()
 
-	to_node("status", 'Shutdown: Done.')
+	to_node('status', 'Shutdown: Done.')
 	exit()
 
 signal.signal(signal.SIGINT, shutdown)
+
+to_node('status', "loading hand images")
 
 image_gestures = {}
 image_gestures["flat_right"] = cv2.imread('icons/flat_right.jpg')
@@ -151,21 +175,52 @@ image_gestures["thumbs_up_right"] = cv2.imread('icons/thumbs_up_right.jpg')
 image_gestures["thumbs_up_left"] = cv2.imread('icons/thumbs_up_left.jpg')
 image_gestures["thumbs_down_right"] = cv2.imread('icons/thumbs_down_right.jpg')
 image_gestures["thumbs_down_left"] = cv2.imread('icons/thumbs_down_left.jpg')
+image_gestures["two_left"] = cv2.imread('icons/two_left.jpg')
+image_gestures["two_right"] = cv2.imread('icons/two_right.jpg')
+image_gestures["one_left"] = cv2.imread('icons/one_left.jpg')
+image_gestures["one_right"] = cv2.imread('icons/one_right.jpg')
 
-time.sleep(5)
+#time.sleep(5)
  
-video = cv2.VideoCapture("shmsrc socket-path=/tmp/camera_image ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
-video_1m = cv2.VideoCapture("shmsrc socket-path=/tmp/camera_1m ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
-#video_style_transfer = cv2.VideoCapture("shmsrc socket-path=/tmp/style_transfer is-live=true ! queue ! video/x-raw, format=BGR ,height=1920,width=1080,framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! queue ! appsink wait-on-eos=false drop=true", cv2.CAP_GSTREAMER)
-video_style_transfer = cv2.VideoCapture("shmsrc socket-path=/tmp/style_transfer ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+video = cv2.VideoCapture()
+video_1m = cv2.VideoCapture()
+video_style_transfer = cv2.VideoCapture()
 
-
+to_node('status', "getting video stream")
 while video.isOpened() is False:
-	to_node("status", 'video is not open')
-	time.sleep(5)
+	video.open("shmsrc socket-path=/tmp/camera_image ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+	
+to_node('status', 'getting video_1m stream')
+while video_1m.isOpened() is False:
+	video_1m.open("shmsrc socket-path=/tmp/camera_1m ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+#video_style_transfer = cv2.VideoCapture("shmsrc socket-path=/tmp/style_transfer is-live=true ! queue ! video/x-raw, format=BGR ,height=1920,width=1080,framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! queue ! appsink wait-on-eos=false drop=true", cv2.CAP_GSTREAMER)
+
+to_node('status', "getting video_style_transfer stream")
+while video_style_transfer.isOpened() is False:
+	video_style_transfer.open("shmsrc socket-path=/tmp/style_transfer ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
 
 
+to_node('status', 'starting while loop')
 while True:
+
+	if video.isOpened() is False:
+		video = cv2.VideoCapture("shmsrc socket-path=/tmp/camera_image ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+		continue
+	if video_1m.isOpened() is False:
+		video_1m = cv2.VideoCapture("shmsrc socket-path=/tmp/camera_1m ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+		continue
+	if video_style_transfer.isOpened() is False:
+		video_style_transfer = cv2.VideoCapture("shmsrc socket-path=/tmp/style_transfer ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+		continue
+
+	show_face_captions = global_show_face_captions
+	show_obj_captions = global_show_obj_captions
+	show_gest_captions = global_show_gest_captions
+	show_person_captions = global_show_person_captions
+	show_camera = global_show_camera
+	show_camera_1m = global_show_camera_1m
+	show_style_transfer = global_show_style_transfer
+
 
 	if show_camera is True:
 		if show_camera_1m is True:
@@ -177,7 +232,13 @@ while True:
 			ret, image = video_style_transfer.read()
 	else:
 		image = np.zeros((1920,1080,3), np.uint8)
+		ret = True
 
+	if ret is False:
+		to_node('status', "ret was false.. no image captured")
+		image = np.zeros((1920,1080,3), np.uint8)
+
+	
 	
 	imgUMat = cv2.UMat(image)
 
@@ -186,21 +247,18 @@ while True:
 			cv2.putText(imgUMat, str(module_FPS['FACE_DET_FPS']) + " FPS", (50, 50), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(255,55,55), thickness=3) 
 		if 'DETECTED_FACES' in recognition_dict:
 			for element in recognition_dict['DETECTED_FACES']:
-				xmin, ymin, xmax, ymax = convertBack(float(element["center"][0] * 1080), float(element["center"][1] * 1920), float(element["w_h"][0] * 1080), float(element["w_h"][1] * 1920))
-				pt1 = (xmin, ymin)
-				pt2 = (xmax, ymax)
+				pt1, pt2 = convertBack(element["center"][0], element["center"][1], element["w_h"][0], element["w_h"][1])
 				cv2.rectangle(imgUMat, pt1, pt2, color=(255,55,55), thickness=2)
 				cv2.putText(imgUMat, element["name"], (int(pt1[0] + 5), int(pt1[1] + 60)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(255,55,55), thickness=3)
 				cv2.putText(imgUMat, "ID:" + str(element["TrackID"]), (int(pt1[0] + 5), int(pt1[1] + 30)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(255,55,55), thickness=3)
+				cv2.putText(imgUMat,"confidence: " + str(element["confidence"]) , (int(pt1[0]), int(pt2[1] + 20)), cv2.FONT_HERSHEY_DUPLEX, fontScale=0.5, color=(255,55,55), thickness=2)
 
 	if show_gest_captions is True:
 		if 'GESTURE_DET_FPS' in module_FPS:
 			cv2.putText(imgUMat, str(module_FPS['GESTURE_DET_FPS']) + " FPS", (50, 100), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,55,255), thickness=3) 
 		if 'DETECTED_GESTURES' in recognition_dict:
 			for element in recognition_dict['DETECTED_GESTURES']:
-				xmin, ymin, xmax, ymax = convertBack(float(element["center"][0] * 1080), float(element["center"][1] * 1920), float(element["w_h"][0] * 1080), float(element["w_h"][1] * 1920))
-				pt1 = (xmin, ymin)
-				pt2 = (xmax, ymax)
+				pt1,pt2 = convertBack(element["center"][0], element["center"][1], element["w_h"][0], element["w_h"][1])
 				cv2.rectangle(imgUMat, pt1, pt2, color=(55,55,255), thickness=2)
 				cv2.putText(imgUMat, element["name"], (int(pt1[0] + 5), int(pt1[1] + 60)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,55,255), thickness=3)
 				cv2.putText(imgUMat, "ID:" + str(element["TrackID"]), (int(pt1[0] + 5), int(pt1[1] + 30)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,55,255), thickness=3)
@@ -210,17 +268,35 @@ while True:
 			cv2.putText(imgUMat, str(module_FPS['OBJECT_DET_FPS']) + " FPS", (50, 150), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,255,55), thickness=3)
 		if 'DETECTED_OBJECTS' in recognition_dict:
 			for element in recognition_dict['DETECTED_OBJECTS']:
-				xmin, ymin, xmax, ymax = convertBack(float(element["center"][0] * 1080), float(element["center"][1] * 1920), float(element["w_h"][0] * 1080), float(element["w_h"][1] * 1920))
-				pt1 = (xmin, ymin)
-				pt2 = (xmax, ymax)
+				pt1, pt2 = convertBack(element["center"][0], element["center"][1], element["w_h"][0], element["w_h"][1] )
 				cv2.rectangle(imgUMat, pt1, pt2, color=(55,255,55), thickness=2)
 				cv2.putText(imgUMat, element["name"], (int(pt1[0] + 5), int(pt1[1] + 60)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,255,55), thickness=3)
 				cv2.putText(imgUMat, "ID:" + str(element["TrackID"]), (int(pt1[0] + 5), int(pt1[1] + 30)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,255,55), thickness=3)
 
+	if show_person_captions is True:
+		try:
+			if 'RECOGNIZED_PERSONS' in recognition_dict:
+				persons = recognition_dict['RECOGNIZED_PERSONS'].copy()
+				for key in persons.keys():
+					element = persons[key]
+					pt1, pt2 = convertBack(element["center"][0], element["center"][1], element["w_h"][0], element["w_h"][1])
+					cv2.rectangle(imgUMat, pt1, pt2, color=(255,255,255), thickness=2)
+					cv2.putText(imgUMat, "TrackID:" + str(element["TrackID"]), (int(pt1[0] + 5), int(pt1[1] + 30)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(255,255,255), thickness=3)
+					if "face" in element:
+						cv2.putText(imgUMat, element["face"]["name"] , (int(pt1[0] + 5), int(pt1[1] + 60)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(255,255,255), thickness=3)
+						cv2.putText(imgUMat,"with id: " + str(element["face"]["id"]) , (int(pt1[0] + 5), int(pt1[1] + 80)), cv2.FONT_HERSHEY_DUPLEX, fontScale=0.5, color=(255,255,255), thickness=2)
+						cv2.putText(imgUMat,"and confidence: " + str(element["face"]["confidence"]) , (int(pt1[0] + 5), int(pt1[1] + 100)), cv2.FONT_HERSHEY_DUPLEX, fontScale=0.5, color=(255,255,255), thickness=2)
+						if "center" in element["face"]:
+							pt1, pt2 = convertBack(element["face"]["center"][0], element["face"]["center"][1], element["face"]["w_h"][0], element["face"]["w_h"][1])
+							cv2.rectangle(imgUMat, pt1, pt2, color=(255,255,255), thickness=2)
 
+		except:
+			to_node("error","drawing person reg error")
+			to_node("error", json.dumps(element))
+		
 	image = cv2.UMat.get(imgUMat)
 
-	if show_gest_captions is False and show_obj_captions is False and  show_camera is False:
+	if show_gest_captions is False and show_obj_captions is False and show_camera is False:
 		if 'DETECTED_GESTURES' in recognition_dict:
 			for element in recognition_dict['DETECTED_GESTURES']:
 				name = element["name"]
@@ -233,7 +309,8 @@ while True:
 					if(cpY + image_gestures[name].shape[0] > 1920):
 						cpY = 1920 - image_gestures[name].shape[0]
 
-					image [cpY:cpY + image_gestures[name].shape[0] , cpX:cpX + image_gestures[name].shape[1]] =  image_gestures[name]
+					area = image [cpY:cpY + image_gestures[name].shape[0] , cpX:cpX + image_gestures[name].shape[1]]
+					image [cpY:cpY + image_gestures[name].shape[0] , cpX:cpX + image_gestures[name].shape[1]] =  np.where(image_gestures[name] > 100 ,image_gestures[name], area)
 					
 				
 		

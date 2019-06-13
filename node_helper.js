@@ -19,12 +19,14 @@ module.exports = NodeHelper.create({
 				var parsed_message = JSON.parse(message)
 				//console.log("[MSG " + self.name + "] " + parsed_message);
       				if (parsed_message.hasOwnProperty('status')){
-      					console.log("[" + self.name + "] " + parsed_message.status);
+      					console.log("[" + self.name + "] " + JSON.stringify(parsed_message.status));
+      				}if (parsed_message.hasOwnProperty('error')){
+      					console.log("ERROR! [" + self.name + "] " + parsed_message.error);
       				}
 			}
 			catch(err) {
-				console.log("[" + self.name + "] a non json message received");
-				//console.log(message);
+				//console.log("[" + self.name + "] a non json message received");
+				console.log("[" + self.name + "] message received: " + message);
 				//console.log(err);
 			}
     		});
@@ -45,6 +47,8 @@ module.exports = NodeHelper.create({
 	}else if (notification === 'DETECTED_OBJECTS'){
 		self.pyshell.send(JSON.stringify(payload));
 	}else if (notification === 'DETECTED_FACES'){
+		self.pyshell.send(JSON.stringify(payload));
+	}else if (notification === 'RECOGNIZED_PERSONS'){
 		self.pyshell.send(JSON.stringify(payload));
 	}else if (notification === 'GESTURE_DET_FPS'){
 		var data = {"GESTURE_DET_FPS": payload};

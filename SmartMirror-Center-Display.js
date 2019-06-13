@@ -71,6 +71,8 @@ Module.register('SmartMirror-Center-Display',{
 			this.sendSocketNotification('OBJECT_DET_FPS', payload);
 		}else if (notification === 'FACE_DET_FPS') {
 			this.sendSocketNotification('FACE_DET_FPS', payload);
+		}else if (notification === 'RECOGNIZED_PERSONS') {
+			this.sendSocketNotification('RECOGNIZED_PERSONS', payload);
 		}
     },
 
