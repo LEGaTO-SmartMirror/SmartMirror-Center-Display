@@ -21,6 +21,26 @@ def to_node(type, message):
 BASE_DIR = os.path.dirname(__file__) + '/'
 os.chdir(BASE_DIR)
 
+#Full HD image as default
+IMAGE_HEIGHT = 1080
+IMAGE_WIDTH = 1920
+global AI_ART_MIRROR
+AI_ART_MIRROR = False
+
+try:
+	to_node("status", "starting with config: " + sys.argv[1])
+	config = json.loads(sys.argv[1])
+	if 'image_height' in config:
+		IMAGE_HEIGHT = int(config['image_height'])
+	if 'image_width' in config:
+		IMAGE_WIDTH = int(config['image_width'])
+	if 'ai_art_mirror' in config:
+		AI_ART_MIRROR = bool(config['ai_art_mirror'])
+
+except:
+	to_node("status", "starting without config as it was not readable/existent")
+
+
 global global_show_face_captions 
 global global_show_obj_captions 
 global global_show_gest_captions 
@@ -33,26 +53,26 @@ global_show_face_captions = False
 global_show_obj_captions = False
 global_show_gest_captions = False
 global_show_person_captions = True
-global_show_camera = False
+global_show_camera = True
 global_show_camera_1m = False
 global_show_style_transfer = False
 
 recognition_dict = {}
 module_FPS = {}
 
-if os.path.exists("/tmp/center_display") is True:
-	os.remove("/tmp/center_display")
+if os.path.exists("/dev/shm/center_display") is True:
+	os.remove("/dev/shm/center_display")
 
-out = cv2.VideoWriter ('appsrc ! shmsink socket-path=/tmp/center_display sync=true wait-for-connection=false shm-size=100000000',0, 30, (1080,1920), True)
+out = cv2.VideoWriter ('appsrc ! shmsink socket-path=/dev/shm/center_display sync=true wait-for-connection=false shm-size=100000000',0, 30, (IMAGE_WIDTH, IMAGE_HEIGHT), True)
 
-out.write(np.zeros((1920,1080,3), np.uint8))
-out.write(np.zeros((1920,1080,3), np.uint8))
-out.write(np.zeros((1920,1080,3), np.uint8))
-out.write(np.zeros((1920,1080,3), np.uint8))
+out.write(np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), np.uint8))
+out.write(np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), np.uint8))
+out.write(np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), np.uint8))
+out.write(np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), np.uint8))
 
 to_node('status','starting sub process')
 
-pp = subprocess.Popen(['python', 'webstream.py'])
+pp = subprocess.Popen(['python3', 'webstream.py', str(IMAGE_HEIGHT), str(IMAGE_WIDTH) ])
 
 
 def check_stdin():
@@ -65,6 +85,7 @@ def check_stdin():
 	global global_show_style_transfer
 	global recognition_dict
 	global module_FPS
+	global AI_ART_MIRROR
 	
 	while True:
 		lines = sys.stdin.readline()
@@ -86,7 +107,7 @@ def check_stdin():
 					global_show_gest_captions = not global_show_gest_captions
 				elif setting == 'PERSON':
 					global_show_person_captions = not global_show_person_captions
-				elif setting == 'STYLE_TRANSFERE':
+				elif setting == 'STYLE_TRANSFERE' and AI_ART_MIRROR:
 					global_show_obj_captions = False
 					global_show_face_captions = False
 					global_show_gest_captions = False
@@ -140,10 +161,10 @@ t.start()
 to_node('status', "check_stdin started")
 
 def convertBack(x, y, w, h):
-	x = x * 1080
-	y = y * 1920
-	w = w * 1080
-	h = h * 1920
+	x = x * IMAGE_WIDTH
+	y = y * IMAGE_HEIGHT
+	w = w * IMAGE_WIDTH
+	h = h * IMAGE_HEIGHT
 	xmin = int(round(x - (w / 2)))
 	xmax = int(round(x + (w / 2)))
 	ymin = int(round(y - (h / 2)))
@@ -188,30 +209,34 @@ video_style_transfer = cv2.VideoCapture()
 
 to_node('status', "getting video stream")
 while video.isOpened() is False:
-	video.open("shmsrc socket-path=/tmp/camera_image ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+	video.open("shmsrc socket-path=/dev/shm/camera_image ! video/x-raw, format=BGR, height=" + str(IMAGE_HEIGHT) + ", width=" + str(IMAGE_WIDTH) + ", framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
 	
 to_node('status', 'getting video_1m stream')
 while video_1m.isOpened() is False:
-	video_1m.open("shmsrc socket-path=/tmp/camera_1m ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+	video_1m.open("shmsrc socket-path=/dev/shm/camera_image ! video/x-raw, format=BGR, height=" + str(IMAGE_HEIGHT) + ", width=" + str(IMAGE_WIDTH) + ", framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
 #video_style_transfer = cv2.VideoCapture("shmsrc socket-path=/tmp/style_transfer is-live=true ! queue ! video/x-raw, format=BGR ,height=1920,width=1080,framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! queue ! appsink wait-on-eos=false drop=true", cv2.CAP_GSTREAMER)
 
-to_node('status', "getting video_style_transfer stream")
-while video_style_transfer.isOpened() is False:
-	video_style_transfer.open("shmsrc socket-path=/tmp/style_transfer ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+
+if AI_ART_MIRROR is True:
+	to_node('status', "getting video_style_transfer stream")
+	while video_style_transfer.isOpened() is False:
+		video_style_transfer.open("shmsrc socket-path=/tmp/style_transfer ! video/x-raw, format=BGR, height=" + str(IMAGE_HEIGHT) + ", width=" + str(IMAGE_WIDTH) + ", framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+else:
+	to_node('status', "starting without video_style_transfer")
 
 
 to_node('status', 'starting while loop')
 while True:
 
-	if video.isOpened() is False:
-		video = cv2.VideoCapture("shmsrc socket-path=/tmp/camera_image ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
-		continue
-	if video_1m.isOpened() is False:
-		video_1m = cv2.VideoCapture("shmsrc socket-path=/tmp/camera_1m ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
-		continue
-	if video_style_transfer.isOpened() is False:
-		video_style_transfer = cv2.VideoCapture("shmsrc socket-path=/tmp/style_transfer ! video/x-raw, format=BGR ,height=1920,width=1080, framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
-		continue
+	#if video.isOpened() is False:
+	#	video = cv2.VideoCapture("shmsrc socket-path=/tmp/camera_image ! video/x-raw, format=BGR, height=" + str(IMAGE_HEIGHT) + ", width=" + str(IMAGE_WIDTH) + ", framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+	#	continue
+	#if video_1m.isOpened() is False:
+	#	video_1m = cv2.VideoCapture("shmsrc socket-path=/tmp/camera_1m ! video/x-raw, format=BGR, height=" + str(IMAGE_HEIGHT) + ", width=" + str(IMAGE_WIDTH) + ", framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+	#	continue
+	#if video_style_transfer.isOpened() is False:
+	#	video_style_transfer = cv2.VideoCapture("shmsrc socket-path=/tmp/style_transfer ! video/x-raw, format=BGR, height=" + str(IMAGE_HEIGHT) + ", width=" + str(IMAGE_WIDTH) + ", framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+	#	continue
 
 	show_face_captions = global_show_face_captions
 	show_obj_captions = global_show_obj_captions
@@ -231,12 +256,12 @@ while True:
 	elif show_style_transfer is True:
 			ret, image = video_style_transfer.read()
 	else:
-		image = np.zeros((1920,1080,3), np.uint8)
+		image = np.zeros((IMAGE_HEIGHT,IMAGE_WIDTH,3), np.uint8)
 		ret = True
 
 	if ret is False:
 		to_node('status', "ret was false.. no image captured")
-		image = np.zeros((1920,1080,3), np.uint8)
+		image = np.zeros((IMAGE_HEIGHT,IMAGE_WIDTH,3), np.uint8)
 
 	
 	
@@ -290,6 +315,14 @@ while True:
 							pt1, pt2 = convertBack(element["face"]["center"][0], element["face"]["center"][1], element["face"]["w_h"][0], element["face"]["w_h"][1])
 							cv2.rectangle(imgUMat, pt1, pt2, color=(255,255,255), thickness=2)
 
+					if "gestures" in element:
+						for gesture in element["gestures"]:
+							pt1, pt2 = convertBack(gesture["center"][0], gesture["center"][1], gesture["w_h"][0], gesture["w_h"][1])
+							cv2.rectangle(imgUMat, pt1, pt2, color=(255,255,255), thickness=2)
+							cv2.putText(imgUMat, gesture["name"] , (int(pt1[0] + 5), int(pt1[1] + 60)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(255,255,255), thickness=3)
+							
+
+
 		except:
 			to_node("error","drawing person reg error")
 			to_node("error", json.dumps(element))
@@ -301,13 +334,13 @@ while True:
 			for element in recognition_dict['DETECTED_GESTURES']:
 				name = element["name"]
 				if name in image_gestures:
-					cpX = int(element["center"][0]*1080)
-					cpY = int(element["center"][1]*1920)
+					cpX = int(element["center"][0]*IMAGE_WIDTH)
+					cpY = int(element["center"][1]*IMAGE_HEIGHT)
 				
-					if(cpX + image_gestures[name].shape[1] > 1080):
-						cpX = 1080 - image_gestures[name].shape[1]
-					if(cpY + image_gestures[name].shape[0] > 1920):
-						cpY = 1920 - image_gestures[name].shape[0]
+					if(cpX + image_gestures[name].shape[1] > IMAGE_WIDTH):
+						cpX = IMAGE_WIDTH - image_gestures[name].shape[1]
+					if(cpY + image_gestures[name].shape[0] > IMAGE_HEIGHT):
+						cpY = IMAGE_HEIGHT - image_gestures[name].shape[0]
 
 					area = image [cpY:cpY + image_gestures[name].shape[0] , cpX:cpX + image_gestures[name].shape[1]]
 					image [cpY:cpY + image_gestures[name].shape[0] , cpX:cpX + image_gestures[name].shape[1]] =  np.where(image_gestures[name] > 100 ,image_gestures[name], area)

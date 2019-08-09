@@ -2,6 +2,15 @@
 
 import cv2
 
+IMAGE_HEIGHT = 1080
+IMAGE_WIDTH = 1920
+
+
+try:
+	IMAGE_HEIGHT = int(sys.argv[1][0])
+	IMAGE_WIDTH = int(sys.argv[1][1])
+except:
+	print("using default image size")
 
 
 class VideoCamera(object):
@@ -9,7 +18,7 @@ class VideoCamera(object):
         # Using OpenCV to capture from device 0. If you have trouble capturing
         # from a webcam, comment the line below out and use a video file
         # instead.
-	self.video = cv2.VideoCapture("shmsrc socket-path=/tmp/center_display ! video/x-raw, format=BGR ,height=1920,width=1080,framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
+        self.video = cv2.VideoCapture("shmsrc socket-path=/dev/shm/center_display ! video/x-raw, format=BGR ,height=" + str(IMAGE_HEIGHT) + ", width=" + str(IMAGE_WIDTH) + ", framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
         # If you decide to use video.mp4, you must have this file in the folder
         # as the main.py.
         # self.video = cv2.VideoCapture('video.mp4')
@@ -22,9 +31,9 @@ class VideoCamera(object):
         # We are using Motion JPEG, but OpenCV defaults to capture raw images,
         # so we must encode it into JPEG in order to correctly display the
         # video stream.
-	#rescaled_image = image
-	rescaled_image = cv2.resize(image,(1080,1920))
-        ret, jpeg = cv2.imencode('.jpg', rescaled_image)
+        #rescaled_image = image
+        #rescaled_image = cv2.resize(image,(IMAGE_WIDTH,IMAGE_HEIGHT))
+        ret, jpeg = cv2.imencode('.jpg', image)
         return jpeg.tobytes()
 # main.py
 

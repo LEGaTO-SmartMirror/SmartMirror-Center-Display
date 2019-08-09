@@ -10,11 +10,14 @@
 Module.register('SmartMirror-Center-Display',{
 
 	defaults: {
+		image_height: 1080,
+		image_width: 1920,
 		height: 540,
 		width: 960,
 		port: 5003,
 		forgroundFPS: 30,
-		backgroundFPS: 5
+		backgroundFPS: 5,
+		ai_art_mirror: true		
 	},
 
 	start: function() {
@@ -22,7 +25,7 @@ Module.register('SmartMirror-Center-Display',{
 		this.is_shown = false;
 		this.is_already_build = false;
 		
-		this.sendSocketNotification('CENTER_DISPLAY_CONFIG', this.config);	
+		this.sendSocketNotification('CONFIG', this.config);	
 
 		Log.info('Starting module: ' + this.name);
 
@@ -35,7 +38,7 @@ Module.register('SmartMirror-Center-Display',{
 		wrapper.className = "video";
 
 		if(this.is_shown) {
-            wrapper.innerHTML = "<iframe width=\"" + this.config.width + "\" height=\"" + this.config.height + "\" src=\"http://0.0.0.0:"+ this.config.port +"\" frameborder=\"0\" allowfullscreen></iframe>";
+            wrapper.innerHTML = "<iframe width=\"" + this.config.image_width + "\" height=\"" + this.config.image_height + "\" src=\"http://0.0.0.0:"+ this.config.port +"\" frameborder=\"0\" allowfullscreen></iframe>";
             //wrapper.innerHTML = "<iframe width=\"" + this.config.width +"\" height=\"" + this.config.height + "\" src=\"http://0.0.0.0:5000/video_feed\" frameborder=\"0\" allowfullscreen></iframe>";
 		};
 

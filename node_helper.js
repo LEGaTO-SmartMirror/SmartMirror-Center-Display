@@ -12,7 +12,7 @@ module.exports = NodeHelper.create({
 	python_start: function () {
 		const self = this;
 		console.log("[" + self.name + "] starting python");
-    	self.pyshell = new PythonShell('modules/' + this.name + '/python_scripts/center-display-combine_stdio.py', {args: [JSON.stringify(this.config)]});
+    	self.pyshell = new PythonShell('modules/' + this.name + '/python_scripts/center-display-combine_stdio.py', {pythonPath: 'python3', args: [JSON.stringify(this.config)]});
 
 		self.pyshell.on('message', function (message) {
 			try {
@@ -36,7 +36,7 @@ module.exports = NodeHelper.create({
 	// Subclass socketNotificationReceived received.
   socketNotificationReceived: function(notification, payload) {
 	const self = this;
-	if(notification === 'CENTER_DISPLAY_CONFIG') {
+	if(notification === 'CONFIG') {
       this.config = payload
       this.python_start(); 
     }else if(notification === 'CENTER_DISPLAY'){
