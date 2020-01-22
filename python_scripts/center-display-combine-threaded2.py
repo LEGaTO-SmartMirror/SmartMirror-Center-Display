@@ -49,6 +49,11 @@ global global_show_camera
 global global_show_camera_1m 
 global global_show_style_transfer
 
+global image_obj_cap
+
+global recognition_dict
+global module_FPS
+
 global_show_face_captions = False
 global_show_obj_captions = False
 global_show_gest_captions = False
@@ -56,6 +61,8 @@ global_show_person_captions = True
 global_show_camera = True
 global_show_camera_1m = False
 global_show_style_transfer = False
+
+image_obj_cap = np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), np.uint8)
 
 recognition_dict = {}
 module_FPS = {}
@@ -225,20 +232,45 @@ else:
 	to_node('status', "starting without video_style_transfer")
 
 
+
+def drawObjectCaps():
+	global recognition_dict
+	global image_obj_cap
+	global global_show_obj_captions
+	
+	while True:
+	
+		show_obj_captions = global_show_obj_captions
+
+		if show_obj_captions is False:
+			time.sleep(1)
+			continue
+
+		else:
+
+			imgUMatOBJ = cv2.UMat(np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), np.uint8))
+
+			if 'DETECTED_OBJECTS' in recognition_dict:
+				for element in recognition_dict['DETECTED_OBJECTS']:
+					pt1, pt2 = convertBack(element["center"][0], element["center"][1], element["w_h"][0], element["w_h"][1] )
+					cv2.rectangle(imgUMatOBJ, pt1, pt2, color=(55,255,55), thickness=2)
+					cv2.putText(imgUMatOBJ, element["name"] + "/ID:" + str(element["TrackID"]) , (int(pt1[0] + 5), int(pt1[1] + 30)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,255,55), thickness=3)
+
+			image_obj_tmp = cv2.UMat.get(imgUMatOBJ)
+			image_obj_cap = np.copy(image_obj_tmp)
+
+
+drawOBJ_thread = Thread(target=drawObjectCaps)
+drawOBJ_thread.start()
+
+
+achieved_FPS_counter = 0.0
+achieved_FPS = 0.0
+
 to_node('status', 'starting while loop')
 while True:
 
 	start_time = time.time();
-
-	#if video.isOpened() is False:
-	#	video = cv2.VideoCapture("shmsrc socket-path=/tmp/camera_image ! video/x-raw, format=BGR, height=" + str(IMAGE_HEIGHT) + ", width=" + str(IMAGE_WIDTH) + ", framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
-	#	continue
-	#if video_1m.isOpened() is False:
-	#	video_1m = cv2.VideoCapture("shmsrc socket-path=/tmp/camera_1m ! video/x-raw, format=BGR, height=" + str(IMAGE_HEIGHT) + ", width=" + str(IMAGE_WIDTH) + ", framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
-	#	continue
-	#if video_style_transfer.isOpened() is False:
-	#	video_style_transfer = cv2.VideoCapture("shmsrc socket-path=/tmp/style_transfer ! video/x-raw, format=BGR, height=" + str(IMAGE_HEIGHT) + ", width=" + str(IMAGE_WIDTH) + ", framerate=30/1 ! videoconvert ! video/x-raw, format=BGR ! appsink drop=true", cv2.CAP_GSTREAMER)
-	#	continue
 
 	show_face_captions = global_show_face_captions
 	show_obj_captions = global_show_obj_captions
@@ -267,38 +299,25 @@ while True:
 
 	
 	
-	imgUMat = cv2.UMat(image)
+	imgUMat = cv2.UMat(image)	
 
-	if show_face_captions is True:
-		if 'FACE_DET_FPS' in module_FPS:
-			cv2.putText(imgUMat, str(module_FPS['FACE_DET_FPS']) + " FPS", (50, 50), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(255,55,55), thickness=3) 
+
+	if show_face_captions is True:	
 		if 'DETECTED_FACES' in recognition_dict:
 			for element in recognition_dict['DETECTED_FACES']:
 				pt1, pt2 = convertBack(element["center"][0], element["center"][1], element["w_h"][0], element["w_h"][1])
 				cv2.rectangle(imgUMat, pt1, pt2, color=(255,55,55), thickness=2)
-				cv2.putText(imgUMat, element["name"], (int(pt1[0] + 5), int(pt1[1] + 60)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(255,55,55), thickness=3)
-				cv2.putText(imgUMat, "ID:" + str(element["TrackID"]), (int(pt1[0] + 5), int(pt1[1] + 30)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(255,55,55), thickness=3)
+				cv2.putText(imgUMat, element["name"]+ "/ID:" + str(element["TrackID"]) , (int(pt1[0] + 5), int(pt1[1] + 30)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(255,55,55), thickness=3)
 				cv2.putText(imgUMat,"confidence: " + str(element["confidence"]) , (int(pt1[0]), int(pt2[1] + 20)), cv2.FONT_HERSHEY_DUPLEX, fontScale=0.5, color=(255,55,55), thickness=2)
+			
 
 	if show_gest_captions is True:
-		if 'GESTURE_DET_FPS' in module_FPS:
-			cv2.putText(imgUMat, str(module_FPS['GESTURE_DET_FPS']) + " FPS", (50, 100), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,55,255), thickness=3) 
 		if 'DETECTED_GESTURES' in recognition_dict:
 			for element in recognition_dict['DETECTED_GESTURES']:
 				pt1,pt2 = convertBack(element["center"][0], element["center"][1], element["w_h"][0], element["w_h"][1])
 				cv2.rectangle(imgUMat, pt1, pt2, color=(55,55,255), thickness=2)
-				cv2.putText(imgUMat, element["name"], (int(pt1[0] + 5), int(pt1[1] + 60)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,55,255), thickness=3)
-				cv2.putText(imgUMat, "ID:" + str(element["TrackID"]), (int(pt1[0] + 5), int(pt1[1] + 30)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,55,255), thickness=3)
+				cv2.putText(imgUMat, element["name"] + "/ID:" + str(element["TrackID"]), (int(pt1[0] + 5), int(pt1[1] + 30)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,55,255), thickness=3)
 
-	if show_obj_captions is True:
-		if 'OBJECT_DET_FPS' in module_FPS:
-			cv2.putText(imgUMat, str(module_FPS['OBJECT_DET_FPS']) + " FPS", (50, 150), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,255,55), thickness=3)
-		if 'DETECTED_OBJECTS' in recognition_dict:
-			for element in recognition_dict['DETECTED_OBJECTS']:
-				pt1, pt2 = convertBack(element["center"][0], element["center"][1], element["w_h"][0], element["w_h"][1] )
-				cv2.rectangle(imgUMat, pt1, pt2, color=(55,255,55), thickness=2)
-				cv2.putText(imgUMat, element["name"], (int(pt1[0] + 5), int(pt1[1] + 60)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,255,55), thickness=3)
-				cv2.putText(imgUMat, "ID:" + str(element["TrackID"]), (int(pt1[0] + 5), int(pt1[1] + 30)), cv2.FONT_HERSHEY_DUPLEX, fontScale=1, color=(55,255,55), thickness=3)
 
 	if show_person_captions is True:
 		try:
@@ -328,8 +347,12 @@ while True:
 		except:
 			to_node("error","drawing person reg error")
 			to_node("error", json.dumps(element))
-		
+
 	image = cv2.UMat.get(imgUMat)
+
+	if show_obj_captions is True:
+		np.copyto(image, image_obj_cap, where=(image_obj_cap.astype(bool)))
+
 
 	if show_gest_captions is False and show_obj_captions is False and show_camera is False:
 		if 'DETECTED_GESTURES' in recognition_dict:
@@ -351,8 +374,14 @@ while True:
 		
 	out.write(image)
 
-	delta = time.time() - start_time
-	to_node("status", 1.0/delta);
+	achieved_FPS_counter += 1.0
+	
+	achieved_FPS +=  (time.time() - start_time)
+
+	if achieved_FPS_counter > 30:
+		to_node("CENTER_DISPLAY_FPS", float("{0:.2f}".format(1 / (achieved_FPS / achieved_FPS_counter))))
+		achieved_FPS_counter = 0.0
+		achieved_FPS = 0.0
 
 	#cv2.imshow("center image", image)
 	#cv2.waitKey(1)

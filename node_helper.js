@@ -12,7 +12,7 @@ module.exports = NodeHelper.create({
 	python_start: function () {
 		const self = this;
 		console.log("[" + self.name + "] starting python");
-    	self.pyshell = new PythonShell('modules/' + this.name + '/python_scripts/center-display-combine_stdio.py', {pythonPath: 'python3', args: [JSON.stringify(this.config)]});
+    	self.pyshell = new PythonShell('modules/' + this.name + '/python_scripts/center-display-combine-threaded2.py', {pythonPath: 'python3', args: [JSON.stringify(this.config)]});
 
 		self.pyshell.on('message', function (message) {
 			try {
@@ -22,7 +22,11 @@ module.exports = NodeHelper.create({
       					console.log("[" + self.name + "] " + JSON.stringify(parsed_message.status));
       				}if (parsed_message.hasOwnProperty('error')){
       					console.log("ERROR! [" + self.name + "] " + parsed_message.error);
-      				}
+      				}if (parsed_message.hasOwnProperty("CENTER_DISPLAY_FPS")){
+						self.sendSocketNotification('CENTER_DISPLAY_FPS', parsed_message.CENTER_DISPLAY_FPS);
+					}
+
+	
 			}
 			catch(err) {
 				//console.log("[" + self.name + "] a non json message received");

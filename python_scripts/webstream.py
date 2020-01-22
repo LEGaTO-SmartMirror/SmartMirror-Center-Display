@@ -1,14 +1,14 @@
 # camera.py
 
+import sys
 import cv2
 
 IMAGE_HEIGHT = 1080
 IMAGE_WIDTH = 1920
 
-
 try:
-	IMAGE_HEIGHT = int(sys.argv[1][0])
-	IMAGE_WIDTH = int(sys.argv[1][1])
+	IMAGE_HEIGHT = int(sys.argv[1])
+	IMAGE_WIDTH = int(sys.argv[2])
 except:
 	print("using default image size")
 

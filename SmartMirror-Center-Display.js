@@ -78,6 +78,14 @@ Module.register('SmartMirror-Center-Display',{
 			this.sendSocketNotification('RECOGNIZED_PERSONS', payload);
 		}
     },
+	
+	// Override socket notification handler.
+	socketNotificationReceived: function(notification, payload) {
+		if (notification === 'CENTER_DISPLAY_FPS') {
+			this.sendNotification('CENTER_DISPLAY_FPS', payload);
+		}
+	},
+
 
     getStyles: function () {
         return ['style.css'];
