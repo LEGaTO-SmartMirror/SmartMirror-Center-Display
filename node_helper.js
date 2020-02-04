@@ -12,7 +12,7 @@ module.exports = NodeHelper.create({
 	python_start: function () {
 		const self = this;
 		console.log("[" + self.name + "] starting python");
-    	self.pyshell = new PythonShell('modules/' + this.name + '/python_scripts/center-display-combine-threaded2.py', {pythonPath: 'python3', args: [JSON.stringify(this.config)]});
+    	self.pyshell = new PythonShell('modules/' + this.name + '/python_scripts/center-display-combine.py', {pythonPath: 'python3', args: [JSON.stringify(this.config)]});
 
 		self.pyshell.on('message', function (message) {
 			try {
