@@ -228,13 +228,22 @@ else:
 	to_node('status', "starting without video_style_transfer")
 
 
-achieved_FPS_counter = 0.0
+global global_FPS
+global_FPS = 30.0
 achieved_FPS = 0.0
+achieved_FPS_counter = 0.0
 
 to_node('status', 'starting while loop')
 while True:
 
-	start_time = time.time();
+	start_time = time.time()
+
+	FPS = global_FPS
+
+	if FPS == 0:
+		time.sleep(1)
+		to_node("CENTER_DISPLAY_FPS", float("{0:.2f}".format(0.0)))
+		continue
 
 	show_face_captions = global_show_face_captions
 	show_obj_captions = global_show_obj_captions
@@ -344,10 +353,18 @@ while True:
 	out.write(image)
 
 	achieved_FPS_counter += 1.0
-	
-	achieved_FPS +=  (time.time() - start_time)
+	delta = time.time() - start_time
 
-	if achieved_FPS_counter > 30:
+
+	if (1.0 / FPS) - delta > 0:
+		time.sleep((1.0 / FPS) - delta)
+		fps_cap = FPS
+		achieved_FPS += (1.0 / FPS)
+	else:
+		fps_cap = 1. / delta
+		achieved_FPS +=  delta
+
+	if achieved_FPS_counter > FPS:
 		to_node("CENTER_DISPLAY_FPS", float("{0:.2f}".format(1 / (achieved_FPS / achieved_FPS_counter))))
 		achieved_FPS_counter = 0.0
 		achieved_FPS = 0.0
