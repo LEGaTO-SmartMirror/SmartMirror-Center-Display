@@ -43,28 +43,20 @@ module.exports = NodeHelper.create({
 			try{
 				var parsed_message = JSON.parse(`${data}`)
 
-				if (parsed_message.hasOwnProperty('DETECTED_OBJECTS')){
-					//console.log("[" + self.name + "] detected object: " + parsed_message.detected.name + " center in "  + parsed_message.detected.center);
-					self.sendSocketNotification('DETECTED_OBJECTS', parsed_message);
-				}else if (parsed_message.hasOwnProperty('OBJECT_DET_FPS')){
-					//console.log("[" + self.name + "] object detection fps: " + JSON.stringify(parsed_message));
-					self.sendSocketNotification('OBJECT_DET_FPS', parsed_message.OBJECT_DET_FPS);
-				}else if (parsed_message.hasOwnProperty('STATUS')){
-					console.log("[" + self.name + "] status received: " + JSON.stringify(parsed_message));
-				}
+				if (parsed_message.hasOwnProperty('status')){
+					console.log("[" + self.name + "] " + JSON.stringify(parsed_message.status));
+				}if (parsed_message.hasOwnProperty('error')){
+					console.log("ERROR! [" + self.name + "] " + parsed_message.error);
+				}if (parsed_message.hasOwnProperty("CENTER_DISPLAY_FPS")){
+				  self.sendSocketNotification('CENTER_DISPLAY_FPS', parsed_message.CENTER_DISPLAY_FPS);
+			  }
 			}
 			catch(err) {
-				
+				console.error("[" + self.name + "] Error received: " + err + "; Message: " + `${data}`);
 				//console.log(err)
 			}
   			//console.log(`stdout: ${data}`);
 		});	
-		exec(`renice -n 20 -p ${self.objectDet.pid}`,(error,stdout,stderr) => {
-				if (error) {
-					console.error(`exec error: ${error}`);
-  				}
-			});
-
   	},
 	  
 
@@ -73,33 +65,60 @@ module.exports = NodeHelper.create({
   socketNotificationReceived: function(notification, payload) {
 	const self = this;
 	if(notification === 'CONFIG') {
-      this.config = payload
+	
+	  this.config = payload
+	  console.log("[" + self.name + "] Starting with config: " + this.config);
 	  this.python_start(); 
+	  pythonStarted = true;
 	  if (!cAppStarted){
-		this.cApp_start();
-		cAppStarted = true;
+		// this.cApp_start();
+		// cAppStarted = true;
 	  }  
 	  
     }else if(notification === 'CENTER_DISPLAY'){
 		var data = {"SET": payload};
-		self.pyshell.send(JSON.stringify(data));
+		if (pythonStarted)
+			self.pyshell.send(JSON.stringify(data));
+		if (cAppStarted)
+			self.centerDisplay.stdin.write(JSON.stringify(data) + "\n");
 	}else if (notification === 'DETECTED_GESTURES'){
-		self.pyshell.send(JSON.stringify(payload));
+		if (pythonStarted)
+			self.pyshell.send(JSON.stringify(payload));
+		if (cAppStarted)
+			self.centerDisplay.stdin.write(JSON.stringify(payload) + "\n");
 	}else if (notification === 'DETECTED_OBJECTS'){
-		self.pyshell.send(JSON.stringify(payload));
+		if (pythonStarted)
+			self.pyshell.send(JSON.stringify(payload));
+		if (cAppStarted)
+			self.centerDisplay.stdin.write(JSON.stringify(payload) + "\n");
 	}else if (notification === 'DETECTED_FACES'){
-		self.pyshell.send(JSON.stringify(payload));
+		if (pythonStarted)
+			self.pyshell.send(JSON.stringify(payload));
+		if (cAppStarted)
+			self.centerDisplay.stdin.write(JSON.stringify(payload) + "\n");
 	}else if (notification === 'RECOGNIZED_PERSONS'){
-		self.pyshell.send(JSON.stringify(payload));
+		if (pythonStarted)
+			self.pyshell.send(JSON.stringify(payload));
+		if (cAppStarted)
+			self.centerDisplay.stdin.write(JSON.stringify(payload) + "\n");
 	}else if (notification === 'GESTURE_DET_FPS'){
 		var data = {"GESTURE_DET_FPS": payload};
-		self.pyshell.send(JSON.stringify(data));
+		if (pythonStarted)
+			self.pyshell.send(JSON.stringify(data));
+		if (cAppStarted)
+			self.centerDisplay.stdin.write(JSON.stringify(data) + "\n");
 	}else if (notification === 'OBJECT_DET_FPS'){
 		var data = {"OBJECT_DET_FPS": payload};
-		self.pyshell.send(JSON.stringify(data));
+		if (pythonStarted)
+			self.pyshell.send(JSON.stringify(data));
+		if (cAppStarted)
+			self.centerDisplay.stdin.write(JSON.stringify(data) + "\n");
 	}else if (notification === 'FACE_DET_FPS'){
 		var data = {"FACE_DET_FPS": payload};
-		self.pyshell.send(JSON.stringify(data));
+		if (pythonStarted)
+			self.pyshell.send(JSON.stringify(data));
+		if (cAppStarted)
+			self.centerDisplay.stdin.write(JSON.stringify(data) + "\n");
 	};
   },
 
