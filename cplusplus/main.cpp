@@ -6,6 +6,14 @@ string get_stdin() {
     return line;
 }
 
+int handleError( int status, const char* func_name,
+            const char* err_msg, const char* file_name,
+            int line, void* userdata )
+{
+    //Do nothing -- will suppress console output
+    return 0;   //Return value is not used
+}
+
 void set_command(string setting) {
 
     if (setting == "TOGGLE") {
@@ -48,49 +56,55 @@ void set_command(string setting) {
     }
 }
 
-void check_stdin(string line) {
-    try{
-        auto args = json::parse(line);
+void check_stdin() {
 
-        to_node("status", "Got stdin line: " + args.dump());
+    vector<string> lines;
+    while (true) {
+        auto start = chrono::steady_clock::now();
+        try{
+            auto line = get_stdin();
+            // lines.push_back(line);
+            auto args = json::parse(line);
 
-        // First check if we need to set something
-        if (args.count("SET") == 1) {
-            string setting = args["SET"];
-            set_command(setting);
-        } else if (args.count("DETECTED_FACES")==1) {
-            json_faces = args["DETECTED_FACES"];
-            to_node("status", json_faces.dump());
-        } else if (args.count("DETECTED_GESTURES")==1) {
-            json_gestures = args["DETECTED_GESTURES"];
-            to_node("status", json_gestures.dump());
-        } else if (args.count("DETECTED_OBJECTS")==1) {
-            json_objects = args["DETECTED_OBJECTS"];
-            to_node("status", json_objects.dump());
-        } else if (args.count("RECOGNIZED_PERSONS")==1) {
-            json_persons = args["RECOGNIZED_PERSONS"];
-            to_node("status", json_persons.dump());
+            // to_node("status", "Got stdin line: " + args.dump());
+
+            // First check if we need to set something
+            if (args.count("SET") == 1) {
+                string setting = args["SET"];
+                set_command(setting);
+            } else if (args.count("DETECTED_FACES")==1) {
+                json_faces.push(args["DETECTED_FACES"]);
+                to_node("status", json_faces.front().dump());
+            } else if (args.count("DETECTED_GESTURES")==1) {
+                json_gestures.push(args["DETECTED_GESTURES"]);
+                // to_node("status", json_gestures.dump());
+            } else if (args.count("DETECTED_OBJECTS")==1) {
+                json_objects.push(args["DETECTED_OBJECTS"]);
+                // to_node("status", json_objects.dump());
+            } else if (args.count("RECOGNIZED_PERSONS")==1) {
+                json_persons.push(args["RECOGNIZED_PERSONS"]);
+                // to_node("status", json_persons.dump());
+            }
+        } catch (json::exception& e)
+        {
+            //  to_node("status","CPP Error: " + string(e.what()) + "; Line was " + line);
         }
-    } catch (json::exception& e)
-     {
-        //  to_node("status","CPP Error: " + string(e.what()) + "; Line was " + line);
-     }
+        auto end = chrono::steady_clock::now();
+        string str_perf = "Loop stdin took " + to_string(chrono::duration_cast<chrono::milliseconds>(end -start).count()) + " ms";
+        // to_node("status",str_perf);
+    }
 }
 
 void to_node(std::string topic, std::string payload) {
     json j;
     j[topic] = payload;
     cout << j.dump() << endl;
-    // printf(j.dump().c_str()+'\n');
-    // fflush(stdout);
-    // printf("\n");
-    // fflush(stdout);
 }
 
 
 void parse_args(string arg) {
     try{ 
-        // to_node("status", "CPP Parsing arguments ...");
+        to_node("status", "CPP Parsing arguments: " + arg);
         auto args = json::parse(arg);
         // to_node("status", "CPP Arguments: " + args.dump());
 
@@ -108,7 +122,7 @@ void parse_args(string arg) {
         if (ai_art_present)
             is_ai_art = args["ai_art_mirror"].get<bool>();
 
-        to_node("status", "Here1 ...");
+        to_node("status", "Height: " + to_string(height_image) + " ...");
 
         if (cap_video_present){ 
             gst_string_camera = args["gst_string_camera"].get<std::string>();
@@ -135,7 +149,7 @@ void parse_args(string arg) {
         } 
     } catch (json::exception& e)
      {
-        //  to_node("status","Error: " + string(e.what()));
+         to_node("status","Error: " + string(e.what()));
      }
 
 }
@@ -163,93 +177,109 @@ void load_images_gestures() {
     } 
 }
 
-cv::Rect2i convert_back(int x, int y, int w, int h){
+cv::Rect2i convert_back(float x, float y, float w, float h){
     return Rect2i(x * width_image, y * height_image, w * width_image, h * height_image);
 } 
 
-void draw_objects(cuda::GpuMat c_tmp_frame) {
+void draw_objects(Mat tmp_frame) {
     // Don't draw if we don't have to
-    if (!show_captions_objects)
+    if (!show_captions_objects || json_objects.empty())
         return; 
+
+    json_object = json_objects.front();
+    json_objects.pop();
 
     // cuda::GpuMat c_tmp_frame = cuda::GpuMat(width_image, height_image, CV_8UC3);
 
-    if (!json_objects.is_null()){
-        for (auto& element : json_objects) {
-            Rect2i rect = convert_back(element["center"][0].get<int>(), element["center"][1].get<int>(), element["w_h"][0].get<int>(), element["w_h"][1].get<int>());
-            rectangle(c_tmp_frame, rect, Scalar(55,255,55));
-            putText(c_tmp_frame, element["name"].get<std::string>() + "/ID:" + to_string(element["TrackID"].get<int>()),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,Scalar(55,255,55),3);
+    if (!json_object.is_null()){
+        for (auto& element : json_object) {
+            Rect2i rect = convert_back(element["center"][0].get<float>(), element["center"][1].get<float>(), element["w_h"][0].get<float>(), element["w_h"][1].get<float>());
+            rectangle(tmp_frame, rect, Scalar(55,255,55));
+            putText(tmp_frame, element["name"].get<std::string>() + "/ID:" + to_string(element["TrackID"].get<int>()),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,Scalar(55,255,55),3);
         }
     } 
 }
 
-void draw_faces(cuda::GpuMat c_tmp_frame) {
+void draw_faces(Mat tmp_frame) {
     // Don't draw if we don't have to
-    if (!show_captions_face)
+    if (!show_captions_face || json_faces.empty())
         return; 
 
+    json_face = json_faces.front();
+    json_faces.pop();
     // cuda::GpuMat c_tmp_frame = cuda::GpuMat(width_image, height_image, CV_8UC3);
 
-    if (!json_faces.is_null()){
-        for (auto& element : json_faces) {
-            Rect2i rect = convert_back(element["center"][0].get<int>(), element["center"][1].get<int>(), element["w_h"][0].get<int>(), element["w_h"][1].get<int>());
-            rectangle(c_tmp_frame, rect, Scalar(55,255,55));
-            putText(c_tmp_frame, element["name"].get<std::string>() + "/ID:" + to_string(element["TrackID"].get<int>()),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,Scalar(55,255,55),3);
+    if (!json_face.is_null()){
+        for (auto& element : json_face) {
+            Rect2i rect = convert_back(element["center"][0].get<float>(), element["center"][1].get<float>(), element["w_h"][0].get<float>(), element["w_h"][1].get<float>());
+            rectangle(tmp_frame, rect, Scalar(55,255,55));
+        
+            putText(tmp_frame, element["name"].get<std::string>() + "/ID:" + to_string(element["TrackID"].get<int>()),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,Scalar(55,255,55),3);
         }
     } 
 }
 
-void draw_elements(cuda::GpuMat c_tmp_frame, json elements, Scalar color, bool flag_show) {
-    if (!flag_show)
+void draw_elements(Mat tmp_frame, queue<json> elements_queue, Scalar color, bool flag_show) {
+    if (!flag_show || elements_queue.empty())
         return;
+
+    auto elements = elements_queue.front();
+    elements_queue.pop();
 
     if (!elements.is_null()){
         for (auto& element : elements) {
-            Rect2i rect = convert_back(element["center"][0].get<int>(), element["center"][1].get<int>(), element["w_h"][0].get<int>(), element["w_h"][1].get<int>());
-            rectangle(c_tmp_frame, rect, color);
-            putText(c_tmp_frame, element["name"].get<std::string>() + "/ID:" + to_string(element["TrackID"].get<int>()),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,color,3);
+            Rect2i rect = convert_back(element["center"][0].get<float>(), element["center"][1].get<float>(), element["w_h"][0].get<float>(), element["w_h"][1].get<float>());
+            rectangle(tmp_frame, rect, color);
+            // to_node("status", to_string(rect.x) + " " + to_string(rect.y));
+            putText(tmp_frame, element["name"].get<std::string>() + "/ID:" + to_string(element["TrackID"].get<int>()),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,color,3);
         }
     } 
 
 } 
 
-void draw_gestures(cuda::GpuMat c_tmp_frame) {
+void draw_gestures(Mat tmp_frame) {
     // Don't draw if we don't have to
-    if (!show_captions_gestures)
+    if (!show_captions_gestures || json_gestures.empty())
         return; 
+
+    json_gesture = json_gestures.front();
+    json_gestures.pop();
 
     // cuda::GpuMat c_tmp_frame = cuda::GpuMat(width_image, height_image, CV_8UC3);
 
-    if (!json_gestures.is_null()){
-        for (auto& element : json_gestures) {
-            Rect2i rect = convert_back(element["center"][0].get<int>(), element["center"][1].get<int>(), element["w_h"][0].get<int>(), element["w_h"][1].get<int>());
-            rectangle(c_tmp_frame, rect, Scalar(55,255,55));
-            putText(c_tmp_frame, element["name"].get<std::string>() + "/ID:" + to_string(element["TrackID"].get<int>()),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,Scalar(55,255,55),3);
+    if (!json_gesture.is_null()){
+        for (auto& element : json_gesture) {
+            Rect2i rect = convert_back(element["center"][0].get<float>(), element["center"][1].get<float>(), element["w_h"][0].get<float>(), element["w_h"][1].get<float>());
+            rectangle(tmp_frame, rect, Scalar(55,255,55));
+            putText(tmp_frame, element["name"].get<std::string>() + "/ID:" + to_string(element["TrackID"].get<int>()),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,Scalar(55,255,55),3);
         }
     } 
 }
 
-void draw_persons(cuda::GpuMat c_tmp_frame){
-    if (!show_captions_persons)
+void draw_persons(Mat tmp_frame){
+    if (!show_captions_persons || json_persons.empty())
         return;
 
-    if (!json_persons.is_null()){
-        for (auto& element : json_persons) {
-            Rect2i rect = convert_back(element["center"][0].get<int>(), element["center"][1].get<int>(), element["w_h"][0].get<int>(), element["w_h"][1].get<int>());
-            rectangle(c_tmp_frame, rect, Scalar(55,255,55));
-            putText(c_tmp_frame, element["name"].get<std::string>() + "/ID:" + to_string(element["TrackID"].get<int>()),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,Scalar(55,255,55),3);
+    json_person = json_persons.front();
+    json_persons.pop();    
+
+    if (!json_person.is_null()){
+        for (auto& element : json_person) {
+            Rect2i rect = convert_back(element["center"][0].get<float>(), element["center"][1].get<float>(), element["w_h"][0].get<float>(), element["w_h"][1].get<float>());
+            rectangle(tmp_frame, rect, Scalar(55,255,55));
+            putText(tmp_frame, element["name"].get<std::string>() + "/ID:" + to_string(element["TrackID"].get<int>()),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,Scalar(55,255,55),3);
         
             if (element.count("face") > 0) {
                 json face = element["face"];
                 
-                putText(c_tmp_frame, face["name"].get<std::string>(),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,Scalar(55,255,55),3);
-                putText(c_tmp_frame,"with id: " + face["id"].get<std::string>() , Point(rect.x, rect.y+50), FONT_HERSHEY_DUPLEX, 0.5, Scalar(255,255,255), 2);
-				putText(c_tmp_frame,"and confidence: " + face["confidence"].get<std::string>() , Point(rect.x, rect.y+90), FONT_HERSHEY_DUPLEX, 0.5, Scalar(255,255,255), 2);
+                putText(tmp_frame, face["name"].get<std::string>(),Point(rect.x, rect.y),FONT_HERSHEY_COMPLEX,1,Scalar(55,255,55),3);
+                putText(tmp_frame,"with id: " + face["id"].get<std::string>() , Point(rect.x, rect.y+50), FONT_HERSHEY_DUPLEX, 0.5, Scalar(255,255,255), 2);
+				putText(tmp_frame,"and confidence: " + face["confidence"].get<std::string>() , Point(rect.x, rect.y+90), FONT_HERSHEY_DUPLEX, 0.5, Scalar(255,255,255), 2);
             
                 if (face.count("center") > 0){
                     json center_face = face["center"];                     
-                    Rect2i rect = convert_back(center_face["center"][0].get<int>(), center_face["center"][1].get<int>(), center_face["w_h"][0].get<int>(), center_face["w_h"][1].get<int>());
-                    rectangle(c_tmp_frame, rect, Scalar(255,255,255));
+                    Rect2i rect = convert_back(center_face["center"][0].get<float>(), center_face["center"][1].get<float>(), center_face["w_h"][0].get<float>(), center_face["w_h"][1].get<float>());
+                    rectangle(tmp_frame, rect, Scalar(255,255,255));
 
                 }
             }
@@ -257,9 +287,9 @@ void draw_persons(cuda::GpuMat c_tmp_frame){
             if (element.count("gestures") > 0){
                     json gestures = element["gestures"];
                     for (auto& gesture : gestures) {
-                        Rect2i rect = convert_back(gesture["center"][0].get<int>(), gesture["center"][1].get<int>(), gesture["w_h"][0].get<int>(), gesture["w_h"][1].get<int>());
-                        rectangle(c_tmp_frame, rect, Scalar(255,255,255));
-                        putText(c_tmp_frame, gesture["name"].get<std::string>(),Point(rect.x, rect.y+60),FONT_HERSHEY_COMPLEX,1,Scalar(255,255,255),3);
+                        Rect2i rect = convert_back(gesture["center"][0].get<float>(), gesture["center"][1].get<float>(), gesture["w_h"][0].get<float>(), gesture["w_h"][1].get<float>());
+                        rectangle(tmp_frame, rect, Scalar(255,255,255));
+                        putText(tmp_frame, gesture["name"].get<std::string>(),Point(rect.x, rect.y+60),FONT_HERSHEY_COMPLEX,1,Scalar(255,255,255),3);
                     }            
             }
         }
@@ -268,8 +298,12 @@ void draw_persons(cuda::GpuMat c_tmp_frame){
 
 
 
+
+
+
 // GOGOGO
 int main(int argc, char * argv[]) {
+    redirectError(handleError);
     // Say hello
     to_node("status", "CPP Starting  ...");
     // Parse arguments
@@ -279,28 +313,36 @@ int main(int argc, char * argv[]) {
         // DO something if args parse fails.
     }
 
+    cv::namedWindow("Frame",WINDOW_NORMAL);
+
 
     load_images_gestures();
-
+    to_node("status","Images loaded.");
     open_video_streams();
+    to_node("status","Video streams loaded.");
+
+    // std::thread()
 
     // Launch stdin checker
-    auto future = std::async(std::launch::async, get_stdin);
+    // auto future = std::async(std::launch::async, get_stdin);
+    thread t_stdin_reader(check_stdin);
 
+    auto start = chrono::steady_clock::now();
     
     while (true) {
         // Check if stdin has new input
-        if (future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-            auto line = future.get();
+        // if (future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+        //     auto line = future.get();
 
-            // Set a new line. Subtle race condition between the previous line
-            // and this. Some lines could be missed. To aleviate, you need an
-            // io-only thread. I'll give an example of that as well.
-            future = std::async(std::launch::async, get_stdin);
-            to_node("status", "CPP Reading stdin ...");
-            check_stdin(line);
-        }
-
+        //     // Set a new line. Subtle race condition between the previous line
+        //     // and this. Some lines could be missed. To aleviate, you need an
+        //     // io-only thread. I'll give an example of that as well.
+        //     future = std::async(std::launch::async, get_stdin);
+        //     // to_node("status", "CPP Reading stdin ...");
+        //     check_stdin(line);
+        // }
+        
+        start = chrono::steady_clock::now();
         // Read images from camera(s)
         if (show_camera){
             // if 1m camera is active, show that frame
@@ -311,13 +353,50 @@ int main(int argc, char * argv[]) {
         } else if (show_style_transfer) // if neither but style, show style
             cap_video_style >> frame_current_camera;
         else // Nothing selected, create empty frame to work on
-            frame_current_camera = Mat(width_image, height_image, CV_8UC3);
+            frame_current_camera = Mat(height_image, width_image, CV_8UC3);
         
-        
+        c_frame_camera.upload(frame_current_camera);
+ 
+        // to_node("status", "Camera frame uploaded");
+        // c_frame_to_draw = cuda::GpuMat(width_image, height_image, CV_8UC3);
+        // c_frame_to_draw.setTo(Scalar::all(0));
+        // to_node("status", "Frame prepared");
+        Mat frame_to_draw(height_image, width_image, CV_8UC3);
+        frame_to_draw.setTo(Scalar::all(0));
 
-        // to_node("status", "Here ...");
-        c_frame_to_draw = cuda::GpuMat(width_image, height_image, CV_8UC3);
-        c_frame_to_draw.setTo(Scalar::all(0));
+        to_node("status", "queue sizes: " + to_string(json_faces.size()) + " " +  to_string(json_objects.size()) + " " +  to_string(json_gestures.size())  );
 
+        draw_elements(frame_to_draw, json_faces,Scalar(255,0,190), show_captions_face);
+        // to_node("status", "Faces drawn");
+        draw_elements(frame_to_draw, json_objects,Scalar(255,0,190), show_captions_objects);
+        // to_node("status", "Objects drawn");
+        draw_elements(frame_to_draw, json_gestures,Scalar(255,0,190), show_captions_gestures);
+        // to_node("status", "Gestures drawn");
+        // draw_persons(frame_to_draw);
+        // to_node("status", "Persons drawn");
+
+        c_frame_to_draw.upload(frame_to_draw);
+        // to_node("status", "Elements drawn");
+        cuda::GpuMat c_frame_mask(c_frame_to_draw.size(),CV_8U);
+        cuda::cvtColor(c_frame_to_draw, c_frame_mask, COLOR_BGR2GRAY);
+
+        cuda::GpuMat c_frame_to_show(c_frame_to_draw.size(),CV_8UC3);
+
+        c_frame_to_show = c_frame_camera.clone();
+
+        c_frame_to_draw.copyTo(c_frame_to_show, c_frame_mask);
+        // to_node("status", "Mask copied");
+        Mat frame_to_show, frame_mask;
+        c_frame_to_show.download(frame_to_show);
+        // c_frame_mask.download(frame_mask);
+        // to_node("status", "Showing");
+
+        auto end = chrono::steady_clock::now();
+        string str_perf = "Loop took " + to_string(chrono::duration_cast<chrono::milliseconds>(end -start).count()) + " ms";
+        // to_node("status",str_perf);
+        // Mat mask(frame_to_show.size(), CV_8U);
+
+        imshow("Frame",frame_to_show);
+        waitKey(1);
     }
 }

@@ -2,6 +2,7 @@
 const NodeHelper = require('node_helper');
 const { spawn, exec } = require('child_process');
 const {PythonShell} = require('python-shell');
+var readline = require('readline') 
 var pythonStarted = false
 
 var cAppStarted = false
@@ -38,10 +39,14 @@ module.exports = NodeHelper.create({
 	},
 	cApp_start: function () {
 		const self = this;
-		self.centerDisplay = spawn('modules/' + this.name + '/cplusplus/build/center_display',['modules/' + this.name + '/build/center_display', self.config]);
-		self.centerDisplay.stdout.on('data', (data) => {
+		self.centerDisplay = spawn('modules/' + this.name + '/cplusplus/build/center_display',[ JSON.stringify(this.config)]);
+		
+		readline.createInterface({
+			input: self.centerDisplay.stdout,
+			terminal : false
+		}).on('line', function(line) {
 			try{
-				var parsed_message = JSON.parse(`${data}`)
+				var parsed_message = JSON.parse(line)
 
 				if (parsed_message.hasOwnProperty('status')){
 					console.log("[" + self.name + "] " + JSON.stringify(parsed_message.status));
@@ -52,28 +57,57 @@ module.exports = NodeHelper.create({
 			  }
 			}
 			catch(err) {
+				
 				console.error("[" + self.name + "] Error received: " + err + "; Message: " + `${data}`);
 				//console.log(err)
 			}
-  			//console.log(`stdout: ${data}`);
-		});	
+		} ),
+
+		readline.createInterface({
+			input: self.centerDisplay.stderr,
+			terminal : false
+		}).on('line', function(line) {			
+			console.error("[" + self.name + "] Error received: " + line);
+			// console.error("[" + self.name + "] Error received: " + line);
+			// cAppStarted = false;
+			
+		} );
+		
+		// self.centerDisplay.stdout.on('data', (data) => {
+		// 	try{
+		// 		var parsed_message = JSON.parse(`${data}`)
+
+		// 		if (parsed_message.hasOwnProperty('status')){
+		// 			console.log("[" + self.name + "] " + JSON.stringify(parsed_message.status));
+		// 		}if (parsed_message.hasOwnProperty('error')){
+		// 			console.log("ERROR! [" + self.name + "] " + parsed_message.error);
+		// 		}if (parsed_message.hasOwnProperty("CENTER_DISPLAY_FPS")){
+		// 		  self.sendSocketNotification('CENTER_DISPLAY_FPS', parsed_message.CENTER_DISPLAY_FPS);
+		// 	  }
+		// 	}
+		// 	catch(err) {
+		// 		console.error("[" + self.name + "] Error received: " + err + "; Message: " + `${data}`);
+		// 		//console.log(err)
+		// 	}
+  		// 	//console.log(`stdout: ${data}`);
+		// });	
   	},
 	  
 
 
 	// Subclass socketNotificationReceived received.
   socketNotificationReceived: function(notification, payload) {
+	try {
 	const self = this;
 	if(notification === 'CONFIG') {
-	
 	  this.config = payload
 	  console.log("[" + self.name + "] Starting with config: " + this.config);
 	  this.python_start(); 
 	  pythonStarted = true;
 	  if (!cAppStarted){
-		// this.cApp_start();
-		// cAppStarted = true;
-	  }  
+		//this.cApp_start();
+		//cAppStarted = true;
+	  } 
 	  
     }else if(notification === 'CENTER_DISPLAY'){
 		var data = {"SET": payload};
@@ -120,6 +154,10 @@ module.exports = NodeHelper.create({
 		if (cAppStarted)
 			self.centerDisplay.stdin.write(JSON.stringify(data) + "\n");
 	};
+	} catch (err) {
+		console.error(err);
+		cAppStarted = false;
+	} 
   },
 
 	stop: function() {

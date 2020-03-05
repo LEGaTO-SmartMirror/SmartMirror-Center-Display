@@ -10,6 +10,7 @@
 #include <chrono>
 #include <future>
 #include <string>
+#include <queue>
 #include <map>
 #include <nlohmann/json.hpp>
 
@@ -84,19 +85,28 @@ bool show_camera;
 bool show_camera_1m;
 bool show_style_transfer;
 
-json json_faces;
-json json_gestures;
-json json_objects;
-json json_persons;
+json json_face;
+json json_gesture;
+json json_object;
+json json_person;
+
+queue<json> json_faces;
+queue<json> json_gestures;
+queue<json> json_objects;
+queue<json> json_persons;
 
 void draw_faces(cuda::GpuMat c_tmp_frame);
 void draw_objects(cuda::GpuMat c_tmp_frame);
 void draw_gestures(cuda::GpuMat c_tmp_frame);
 void draw_persons(cuda::GpuMat c_tmp_frame);
 
-void draw_elements(cuda::GpuMat c_tmp_frame, json elements, Scalar color, bool flag_show);
+void draw_elements(cuda::GpuMat c_tmp_frame, queue<json> elements_queue, Scalar color, bool flag_show);
+
+int handleError( int status, const char* func_name,
+            const char* err_msg, const char* file_name,
+            int line, void* userdata );
 
 void parse_args(string args);
-std::string check_stdin();
+void check_stdin();
 void to_node(std::string topic, std::string payload);
 int main(int argc, char * argv[]);
